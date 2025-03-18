@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import pickle
 import numpy as np
+from fastapi.middleware.cors import CORSMiddleware
 
 # Load trained model
 with open("./svm_model.pkl", "rb") as f:
@@ -9,6 +10,14 @@ with open("./svm_model.pkl", "rb") as f:
 
 # Initialize FastAPI
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Change to frontend URL for security
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Define request schema
 class InputData(BaseModel):
