@@ -253,20 +253,18 @@ def predictDyslexia(data:InputData1):
         keys.append(i[0])
     features = np.array([p])
     X = np.nan_to_num(features)
-
-    # Encode categorical values
+    
+    
     for i in range(X.shape[0]):
         for j in range(X.shape[1]):
             X[i][j] = np.nan_to_num(X[i][j])
 
-    # Encode 'Male' to 0 and 'Female' to 1
+
     X[:, 0] = np.where(X[:, 0] == 'Male', 0, 1)
 
-    # Encode 'Yes' to 1 and 'No' to 0
     X[:, 1] = np.where(X[:, 1] == 'Yes', 1, 0)
     X[:, 2] = np.where(X[:, 2] == 'Yes', 1, 0)
 
-    # Perform Min-Max scaling for non-'Accuracy' columns
     scaler = MinMaxScaler(feature_range=(0, 1))
     for i, feature in enumerate(keys):
         if not feature.startswith('Accuracy'):
