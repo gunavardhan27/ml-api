@@ -9,7 +9,7 @@ import seaborn as sns
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
 from sklearn.model_selection import GridSearchCV
-from imblearn.over_sampling import SMOTEN
+from imblearn.over_sampling import ADASYN, SMOTE
 import pickle
 
 
@@ -71,11 +71,11 @@ def cross_validate(X, y, create_model, n_folds=10, threshold=0.5, seed=42, overs
             oversampler = ADASYN(random_state=seed)
         if oversampling is not None:
             X_train, y_train = oversampler.fit_resample(X_train, y_train)
-        return [X_train,y_train]
+        #return [X_train,y_train]
 
         model = create_model(seed=seed)
         model.fit(X_train, y_train)
-
+        return model
         predicted_probabilities = model.predict_proba(X_test)
         y_pred = (predicted_probabilities[:, 1] >= threshold).astype(int)
 
@@ -103,22 +103,20 @@ def run_experiment(X, y, create_model, threshold=0.5, oversampling=None, seed=42
     results = pd.DataFrame(columns=['Accuracy', 'Recall', 'Precision', 'ROC', 'F1 Score', 'Threshold'])
     #accuracy, recall, precision, roc, f1_score = cross_validate(X, y, create_model, threshold=threshold, seed=seed, oversampling=oversampling)
     #results.loc[0] = [accuracy, recall, precision, roc, f1_score, "{:.3f}".format(threshold)]
+    #return cross_validate(X, y, create_model, threshold=threshold, seed=seed, oversampling=oversampling)
     return cross_validate(X, y, create_model, threshold=threshold, seed=seed, oversampling=oversampling)
-
-    return results
 
 def rf_200_balanced(seed=42):
     return RandomForestClassifier(n_estimators=200, class_weight='balanced', random_state=seed)
 
-def rf_200_unbalanced(X, y, create_model, threshold=0.5, oversampling=None, seed=42):
+#removed X,y, create_model from parameters
+def rf_200_unbalanced(threshold=0.5, oversampling=None, seed=42):
     return RandomForestClassifier(n_estimators=200, class_weight=None, random_state=seed)
 
 data, labels = load_data('./Dyt-desktop.csv')
 data, labels = pre_process(data, labels)
 
 result_exp_02 = run_experiment(data, labels, rf_200_unbalanced, oversampling=None, seed=42)
-
-rf_model = rf_200_unbalanced(42)    
 
 
 # Save Model

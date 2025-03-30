@@ -8,7 +8,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-get_ipython().system('pip install gradio')
+import subprocess
+subprocess.check_call(['pip', 'install', 'gradio'])
 import gradio as gr
 from sklearn.inspection import permutation_importance
 from sklearn.svm import SVC
