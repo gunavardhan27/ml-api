@@ -1,16 +1,21 @@
 from fastapi import FastAPI
+import pandas as pd
 from pydantic import BaseModel
 import pickle
 import numpy as np
 from fastapi.middleware.cors import CORSMiddleware
+from sklearn.calibration import LabelEncoder
 from sklearn.preprocessing import MinMaxScaler
 
 # Load trained model
 with open("./svm_model.pkl", "rb") as f:
     model = pickle.load(f)
 
-with open("./svm_dyslexia_model.pkl", "rb") as f:
-    model1 = pickle.load(f)
+import joblib
+
+model1 = joblib.load('updated_dyslexia.pkl')
+
+model2 = joblib.load('asd_model.pkl')
 
 # Initialize FastAPI
 app = FastAPI()
@@ -243,34 +248,26 @@ class InputData1(BaseModel):
     Missrate32: float
     
    
-
+from collections import defaultdict
 @app.post("/dyslexia-predict")
 def predictDyslexia(data:InputData1):
-    p=[]
-    keys=[]
-    for i in data:
-        p.append(i[1])
-        keys.append(i[0])
-    features = np.array([p])
-    X = np.nan_to_num(features)
+    input_dict = {}
+    for i in data.model_fields.keys():
+        input_dict[i] = getattr(data,i)
+    df = pd.DataFrame([input_dict])
+    df['Gender'] = np.where(df['Gender'] == 'Male', 1.0, 0.0)
+    
+    df['Nativelang'] = np.where(df['Nativelang'] == 'Yes',1.0,0.0)
+    df['Otherlang'] = np.where(df['Otherlang'] == 'Yes',1.0,0.0)
+    
+    y_prob = model1.predict_proba(df)[:,1]
+    print(y_prob)
+    threshold = 0.5  # Adjust this based on precision-recall tuning
+    return 1 if y_prob >= threshold else 0
     
     
-    for i in range(X.shape[0]):
-        for j in range(X.shape[1]):
-            X[i][j] = np.nan_to_num(X[i][j])
+def predictASD(data):
+    pass
 
 
-    X[:, 0] = np.where(X[:, 0] == 'Male', 0, 1)
 
-    X[:, 1] = np.where(X[:, 1] == 'Yes', 1, 0)
-    X[:, 2] = np.where(X[:, 2] == 'Yes', 1, 0)
-
-    scaler = MinMaxScaler(feature_range=(0, 1))
-    for i, feature in enumerate(keys):
-        if not feature.startswith('Accuracy'):
-            column_values = X[:, i].astype(float).reshape(-1, 1)
-            X[:, i] = scaler.fit_transform(column_values).flatten()
-    
-    predicted_probabilities = model1.predict_proba(X.astype(float))[0]
-    return 1 if predicted_probabilities[1] >=0.5 else 0
-    

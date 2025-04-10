@@ -11,6 +11,9 @@ from sklearn.svm import SVC
 from sklearn.model_selection import GridSearchCV
 from imblearn.over_sampling import ADASYN, SMOTE
 import pickle
+from catboost import CatBoostClassifier
+from sklearn.metrics import accuracy_score, classification_report
+from sklearn.utils import shuffle
 
 
 
@@ -36,6 +39,7 @@ def pre_process(data, labels):
     for i in range(X.shape[0]):
         for j in range(X.shape[1]):
             X[i][j] = np.nan_to_num(X[i][j])
+    
 
     # Encode 'Male' to 0 and 'Female' to 1
     X[:, 0] = np.where(X[:, 0] == 'Male', 0, 1)
@@ -71,25 +75,25 @@ def cross_validate(X, y, create_model, n_folds=10, threshold=0.5, seed=42, overs
             oversampler = ADASYN(random_state=seed)
         if oversampling is not None:
             X_train, y_train = oversampler.fit_resample(X_train, y_train)
-        #return [X_train,y_train]
+    return X_train,y_train,X_test,y_test
 
-        model = create_model(seed=seed)
-        model.fit(X_train, y_train)
-        return model
-        predicted_probabilities = model.predict_proba(X_test)
-        y_pred = (predicted_probabilities[:, 1] >= threshold).astype(int)
+        # model = create_model(seed=seed)
+        # model.fit(X_train, y_train)
+        # return model
+        # predicted_probabilities = model.predict_proba(X_test)
+        # y_pred = (predicted_probabilities[:, 1] >= threshold).astype(int)
 
-        accuracy = metrics.accuracy_score(y_test, y_pred)
-        recall = metrics.recall_score(y_test, y_pred, average='binary', pos_label=1, zero_division=0)
-        precision = metrics.precision_score(y_test, y_pred, average='binary', pos_label=1, zero_division=0)
-        roc_score = metrics.roc_auc_score(y_test, y_pred)
-        f1_score = metrics.f1_score(y_test, y_pred, average='binary', pos_label=1, zero_division=0)
+        # accuracy = metrics.accuracy_score(y_test, y_pred)
+        # recall = metrics.recall_score(y_test, y_pred, average='binary', pos_label=1, zero_division=0)
+        # precision = metrics.precision_score(y_test, y_pred, average='binary', pos_label=1, zero_division=0)
+        # roc_score = metrics.roc_auc_score(y_test, y_pred)
+        # f1_score = metrics.f1_score(y_test, y_pred, average='binary', pos_label=1, zero_division=0)
         
-        accuracies.append(accuracy)
-        recalls.append(recall)
-        precisions.append(precision)
-        rocs.append(roc_score)
-        f1_scores.append(f1_score)
+        # accuracies.append(accuracy)
+        # recalls.append(recall)
+        # precisions.append(precision)
+        # rocs.append(roc_score)
+        # f1_scores.append(f1_score)
     
     accuracy = float("{:.1f}".format(np.mean(accuracies) * 100))
     recall = float("{:.1f}".format(np.mean(recalls) * 100))
@@ -99,12 +103,39 @@ def cross_validate(X, y, create_model, n_folds=10, threshold=0.5, seed=42, overs
 
     return accuracy, recall, precision, roc, f1_score
 
-def run_experiment(X, y, create_model, threshold=0.5, oversampling=None, seed=42):
+def run_experiment(X, y, create_model=None, threshold=0.5, oversampling=None, seed=42):
     results = pd.DataFrame(columns=['Accuracy', 'Recall', 'Precision', 'ROC', 'F1 Score', 'Threshold'])
     #accuracy, recall, precision, roc, f1_score = cross_validate(X, y, create_model, threshold=threshold, seed=seed, oversampling=oversampling)
     #results.loc[0] = [accuracy, recall, precision, roc, f1_score, "{:.3f}".format(threshold)]
     #return cross_validate(X, y, create_model, threshold=threshold, seed=seed, oversampling=oversampling)
     return cross_validate(X, y, create_model, threshold=threshold, seed=seed, oversampling=oversampling)
+
+def catboost_algorithm(data,labels):
+    X_train,y_train,X_test,y_test = cross_validate(data,labels,create_model=None,oversampling='adasyn',seed=42)
+    model = CatBoostClassifier(
+    iterations=1500,  # Number of trees
+    depth=6,  # Tree depth
+    learning_rate=0.03,  # Controls step size
+    loss_function='Logloss',  # For binary classification
+    eval_metric='Accuracy',
+    verbose=100,)
+    model.fit(X_train, y_train, eval_set=(X_test, y_test), early_stopping_rounds=50)
+    y_prob = model.predict_proba(X_test)[:, 1]  # Get probabilities for the positive class ("Yes")
+    threshold = 0.35  # Adjust this based on precision-recall tuning
+    y_pred_threshold = (y_prob >= threshold).astype(int)
+    for index,i in enumerate(y_prob):
+        if(i>=threshold):
+            print('start',data[index],'end')
+            break
+    print("Accuracy:", accuracy_score(y_test, y_pred_threshold))
+    print(classification_report(y_test, y_pred_threshold))
+    return model
+
+    # y_prob = model.predict_proba(X_test)[:, 1]  # Get probabilities for the positive class ("Yes")
+    # threshold = 0.35  # Adjust this based on precision-recall tuning
+    # y_pred_threshold = (y_prob >= threshold).astype(int)
+    # print("Accuracy:", accuracy_score(y_test, y_pred_threshold))
+    # print(classification_report(y_test, y_pred_threshold))
 
 def rf_200_balanced(seed=42):
     return RandomForestClassifier(n_estimators=200, class_weight='balanced', random_state=seed)
@@ -116,9 +147,11 @@ def rf_200_unbalanced(threshold=0.5, oversampling=None, seed=42):
 data, labels = load_data('./Dyt-desktop.csv')
 data, labels = pre_process(data, labels)
 
-result_exp_02 = run_experiment(data, labels, rf_200_unbalanced, oversampling=None, seed=42)
+my_model = catboost_algorithm(data,labels)
+
+#result_exp_02 = run_experiment(data, labels, rf_200_unbalanced, oversampling=None, seed=42)
 
 
 # Save Model
 with open("svm_dyslexia_model.pkl", "wb") as f:
-    pickle.dump(result_exp_02, f)
+    pickle.dump(my_model, f)
