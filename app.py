@@ -266,8 +266,42 @@ def predictDyslexia(data:InputData1):
     return 1 if y_prob >= threshold else 0
     
     
-def predictASD(data):
-    pass
+class InputData2(BaseModel):
+    A1:int
+    A2:int
+    A3:int
+    A4:int
+    A5:int 
+    A6:int
+    A7:int
+    A8:int
+    A9:int
+    A10:int
+    Age_Mons:int
+    Qchat_10_Score:int
+    Sex:str
+    Ethnicity:str
+    Jaundice:str
+    Family_mem_with_ASD:str
+    relation:str
+
+@app.post("/predict-asd")
+def predictASD(data: InputData2):
+    dataset = {}
+    for i in data.model_fields.keys():
+        dataset[i] = getattr(data, i)
+    
+    df = pd.DataFrame([dataset])
+    
+    # Apply label encoding individually to each categorical column
+    df['Sex'] = LabelEncoder().fit_transform(df['Sex'])
+    df['Jaundice'] = LabelEncoder().fit_transform(df['Jaundice'])
+    df['Ethnicity'] = LabelEncoder().fit_transform(df['Ethnicity'])
+    df['Family_mem_with_ASD'] = LabelEncoder().fit_transform(df['Family_mem_with_ASD'])
+    df['relation'] = LabelEncoder().fit_transform(df['relation'])
+    res = model2.predict(df)
+    print(df)
+    return int(res[0])
 
 
 

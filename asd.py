@@ -120,4 +120,4 @@ for key in scores:
     print(f"{key}: {scores[key]}")
 
 
-joblib.dump(svclassifier,'asd_svc.pkl')
+joblib.dump(svclassifier,'asd_model.pkl')
